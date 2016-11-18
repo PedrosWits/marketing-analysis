@@ -1,0 +1,23 @@
+\documentclass{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{enumerate}
+\usepackage{float}
+
+\renewcommand{\topfraction}{0.9}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Kathryn Garside \and Pedro Pinto da Silva}
+\lhead{Statistics for Big Data Project}
+\rfoot{Page \thepage}
+
+\begin{document}
+
+\title{Marketing Dataset Analysis \\ MAS8381}
+\author{Kathryn Garside \and Pedro Pinto da Silva}
+
+\maketitle
+
+
+\end{document}
