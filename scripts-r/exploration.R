@@ -1,10 +1,7 @@
 # Missing data
-
+rm(list=ls())
 library(ElemStatLearn)
-?marketing
 data(marketing)
-names(marketing)
-attach(marketing)
 
 # How many NA entries?
 predictors=marketing[-1]
@@ -24,7 +21,3 @@ checkForNA(predictors_naRemoved)
 
 
 # Replace missing values with the mean
-
-sum(is.na(Marital_naRemoved))
-Marital_naRemoved<-Marital[complete.cases(Marital)]
-mean(Marital_naRemoved)
