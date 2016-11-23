@@ -100,3 +100,11 @@ fit<-glm(Income~.,data=marketing_naRemoved)
 summary(fit)
 
 
+##############################
+#   Source exploration File  #
+##############################
+current_dir = dirname(sys.frame(1)$ofile)
+source(paste(current_dir, "exploration.R", sep="/"))
+
+
+

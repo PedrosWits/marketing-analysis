@@ -1,3 +1,14 @@
+##############################
+#   Clear Global Env         #
+##############################
+rm(list=ls())
+
+##############################
+#   Source exploration File  #
+##############################
+current_dir = dirname(sys.frame(1)$ofile)
+source(paste(current_dir, "exploration.R", sep="/"))
+
 ######################################################################
 #                         Bayesian Approach                          #
 ######################################################################
@@ -62,6 +73,7 @@ hist(outputMatrix[,15],main="Tau",xlab="")
 dev.off()
 
 
+<<<<<<< HEAD
 # Bayesian variable selection with random effects (ripped straight from Darrens blog)
 
 data=list(Y=Y,X=X,n=n,p=p)
