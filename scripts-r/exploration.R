@@ -5,7 +5,7 @@ library(ElemStatLearn)
 library(reshape2)
 library(ggplot2)
 
-
+rm(list=ls())
 ###########################
 #       Dataset           #
 ###########################
@@ -24,20 +24,59 @@ str(marketing)
 #  Factoring Categorical Data    #
 ##################################
 
-upper_bounds = c(0, 10000, 15000,
-                 20000, 25000, 30000,
-                 40000, 50000, 75000)
-incomes = c("< 10,000", "< 15,000", "< 20,000",
-            "< 25,000", "< 30,000", "< 40,000",
-            "< 50,000", "< 75,000", "75,000")
-marketing$Income = factor(marketing$Income,
-                          levels = incomes,
-                          ordered = TRUE)
+# Factor unordered categorical data
+# but dont factor ordered categorical data
+
+# Non ordered: sex, marital, occupation
+#              dual_income, status,
+#              home_type, ethnic, language
 
 marketing$Sex = factor(marketing$Sex,
                        labels = c("Male", "Female"),
                        ordered = FALSE)
 
+marketing$Marital = factor(marketing$Marital,
+                           labels = c("Married", "Living",
+                                      "Divorced", "Widowed",
+                                      "Single"),
+                           ordered = FALSE)
+
+marketing$Occupation = factor(marketing$Occupation,
+                              labels = c("Professional", "Sales",
+                                         "Factory", "Clerical",
+                                         "Homemaker", "Student",
+                                         "Military", "Retired",
+                                         "Unemployed"),
+                              ordered = FALSE)
+
+marketing$Dual_Income = factor(marketing$Dual_Income,
+                               labels = c("Not Married",
+                                          "Yes", "No"),
+                               ordered = FALSE)
+
+marketing$Status = factor(marketing$Status,
+                          labels = c("Own", "Rent",
+                                     "WithFamily"),
+                          ordered = FALSE)
+
+marketing$Home_Type = factor(marketing$Home_Type,
+                             labels = c("House", "Condo",
+                                        "Apartment", "Mobile",
+                                        "Home"),
+                             ordered = FALSE)
+
+marketing$Ethnic = factor(marketing$Ethnic,
+                          labels = c("American Indian", "Asian",
+                                     "Black", "East Indian", "Hispanic",
+                                     "Pacific", "White", "Other"),
+                          ordered = FALSE)
+
+marketing$Language = factor(marketing$Language,
+                            labels = c("English", "Spanish", "Other"),
+                            ordered = FALSE)
+                             
+
+str(marketing)
 ############################
 #   Address Missing Values #
 ############################
@@ -50,22 +89,6 @@ if(fixType == Fix$NAIVE) {
 } else {
   stop("Fix not implemented yet.")
 }
-
-
-###############################
-# Dataset structure after fix #
-###############################
-dim(marketing)
-
-
-###############################
-# Summary Statistics          #
-###############################
-
-# Missing data
-rm(list=ls())
-library(ElemStatLearn)
-data(marketing)
 
 # How many NA entries?
 predictors=marketing[-1]
@@ -81,27 +104,21 @@ checkForNA(predictors)
 # Remove row if there is any missing data 
 marketing_naRemoved<-marketing[complete.cases(marketing),]
 predictors_naRemoved=marketing_naRemoved[-1]
-checkForNA(predictors_naRemoved)
+#checkForNA(predictors_naRemoved)
 
 
-# TODO: Replace missing values with the mean
+
+###############################
+# Dataset structure after fix #
+###############################
+dim(marketing)
 
 
-# Factor the appropriate variables
-marketing_factored=marketing_naRemoved
+###############################
+# Summary Statistics          #
+###############################
 
-marketing_factored$Sex=factor(as.numeric(marketing_factored$Sex))
-marketing_factored$Marital=factor(as.numeric(marketing_factored$Marital))
-marketing_factored$Occupation=factor(as.numeric(marketing_factored$Occupation))
-marketing_factored$Dual_Income=factor(as.numeric(marketing_factored$Dual_Income))
-marketing_factored$Status=factor(as.numeric(marketing_factored$Status))
-marketing_factored$Home_Type=factor(as.numeric(marketing_factored$Home_Type))
-marketing_factored$Ethnic=factor(as.numeric(marketing_factored$Ethnic))
-marketing_factored$Language=factor(as.numeric(marketing_factored$Language))
-
-# Some plots
-
-
-# Replace missing values with the mean
-
+hist(marketing$Income)
+#pairs(marketing)
+summary(marketing)
 
