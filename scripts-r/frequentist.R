@@ -42,55 +42,53 @@ coef(reg.best,7)
 mean.cv.errors[7]
 
 
-# Ridge Regression
+# Define x and y + train and test sets
 library(glmnet)
+set.seed(1)
+
 x=model.matrix(Income~.,-1,data=marketing_naRemoved)[,-1]
 y=marketing_naRemoved$Income
-grid=10^seq(10,-2,length=100)
-ridge.mod=glmnet(x,y,alpha=0,lambda=grid)
-set.seed(1)
+
 train=sample(1:nrow(x),nrow(x)/2)
 test=(-train)
-y.test=y[test]
-ridge.mod=glmnet(x[train,],y[train],alpha=0,lambda=grid,thresh=1e-12)
-set.seed(1)
-cv.out=cv.glmnet(x[train,],y[train],alpha=0)
-pdf("frequentist_ridgeregression.pdf")
-plot(cv.out)
-dev.off()
-bestlam=cv.out$lambda.min
-ridge.pred=predict(ridge.mod,s=bestlam,newx=x[test,])
-mean((ridge.pred-y.test)^2)
-out=glmnet(x,y,alpha=0)
-ridge.coef=predict(out,type="coefficients",s=bestlam)[1:14,]
-ridge.coef
-
-
 
 # Lasso
 lasso.mod=glmnet(x,y,alpha=1)
-set.seed(1)
 cv.out=cv.glmnet(x[train,],y[train],alpha=1)
 bestlam=cv.out$lambda.min
 lasso.pred=predict(lasso.mod,s=bestlam,newx=x[test,])
 mean((lasso.pred-y.test)^2)
-out=glmnet(x,y,alpha=1,lambda=grid)
-pdf("frequentist_lasso.pdf")
-plot(cv.out,main="Lasso")
-dev.off()
-lasso.coef=predict(out,type="coefficients",s=bestlam)[1:14,]
-lasso.coef
+out=glmnet(x,y,alpha=1, lambda=10^seq(10, -2, length=100))
 
+plot(cv.out,main="Lasso")
+lasso.coef=predict(out,type="coefficients",s=bestlam)
+
+# Residuals
+residuals = lasso.pred-y.test
+par(mfrow = c(2,2))
+hist(residuals)
+qqnorm(residuals)
+hist(y.test)
+hist(lasso.pred)
+# Comments: Residuals are more or less normally distributed (see histogram + q-q plot)
+#           However, the most common category (0,1) is massively under-predicted
+#           while mid categories are over-predicted.
+
+
+# Ordinal logit
+m <- polr(as.ordered(y) ~ x, data = marketing_naRemoved, Hess=TRUE)
+summary(m)
+confint(m)
 
 
 # PCR
 library(pls)
 pcr.fit=pcr(Income~.,data=marketing_naRemoved,scale=TRUE,validation="CV")
 summary(pcr.fit)
-pdf("frequentist_pcr.pdf")
+#pdf("frequentist_pcr.pdf")
 validationplot(pcr.fit,val.type="MSEP",main="PCR Method")
-dev.off()
-pcr.pred=predict(pcr.fit,x[test,],ncomp=13)
+#dev.off()
+pcr.pred=predict(pcr.fit,x[test,],ncomp=1)
 mean((pcr.pred-y.test)^2)
 
 

@@ -4,6 +4,7 @@
 library(ElemStatLearn)
 library(reshape2)
 library(ggplot2)
+library(MASS)
 
 rm(list=ls())
 ###########################
@@ -118,7 +119,7 @@ dim(marketing)
 # Summary Statistics          #
 ###############################
 
-hist(marketing$Income)
+hist(marketing$Income, col = "red")
 #pairs(marketing)
 summary(marketing)
 

@@ -4,6 +4,7 @@
 \usepackage{fancyhdr}
 \usepackage{enumerate}
 \usepackage{float}
+\usepackage{indentfirst}
 
 \renewcommand{\topfraction}{0.9}
 \pagestyle{fancy}
@@ -19,5 +20,141 @@
 
 \maketitle
 
+%%  Libraries / hidden code
+
+<<echo=FALSE, warning=FALSE, message=FALSE>>=
+library(ElemStatLearn)
+library(reshape2)
+library(ggplot2)
+library(MASS)
+library(leaps)
+library(glmnet)
+
+data(marketing)
+@
+
+
+%%
+
+\section{Introduction and Exploratory Analysis}
+
+In this paper we build and compare several models for predicting Income within the $marketing$ dataset. Both frequentist and bayesian methods are considered and put into practice. Although the main objective is to produce a model that can be used for prediction, we also examine models that hold higher interpretability and therefore are better suited for performing inference.
+
+\subsection{Pre-processing}
+
+The dataset is composed exclusively of numeric categorical variables. However, some are ordered and can be treated as continous while others are nominal and need to be converted to (unordered) factors as it does not make sense to treat them as continuous variables. For instance, Age is represented by discrete values in the range 1 through 7, where each value corresponds to an age interval. Therefore a decimal value for instance of 3.4 would be acceptable and representable within the spectrum of possible ages. On the other hand, Sex is represented by values 1 (Male) or 2 (Female) and a decimal value that lies between those does not make sense.
+
+<<echo=FALSE>>=
+marketing$Sex = factor(marketing$Sex,
+                       labels = c("Male", "Female"),
+                       ordered = FALSE)
+
+marketing$Marital = factor(marketing$Marital,
+                           labels = c("Married", "Living",
+                                      "Divorced", "Widowed",
+                                      "Single"),
+                           ordered = FALSE)
+
+marketing$Occupation = factor(marketing$Occupation,
+                              labels = c("Professional", "Sales",
+                                         "Factory", "Clerical",
+                                         "Homemaker", "Student",
+                                         "Military", "Retired",
+                                         "Unemployed"),
+                              ordered = FALSE)
+
+marketing$Dual_Income = factor(marketing$Dual_Income,
+                               labels = c("Not Married",
+                                          "Yes", "No"),
+                               ordered = FALSE)
+
+marketing$Status = factor(marketing$Status,
+                          labels = c("Own", "Rent",
+                                     "WithFamily"),
+                          ordered = FALSE)
+
+marketing$Home_Type = factor(marketing$Home_Type,
+                             labels = c("House", "Condo",
+                                        "Apartment", "Mobile",
+                                        "Home"),
+                             ordered = FALSE)
+
+marketing$Ethnic = factor(marketing$Ethnic,
+                          labels = c("American Indian", "Asian",
+                                     "Black", "East Indian", "Hispanic",
+                                     "Pacific", "White", "Other"),
+                          ordered = FALSE)
+
+marketing$Language = factor(marketing$Language,
+                            labels = c("English", "Spanish", "Other"),
+                            ordered = FALSE)
+@
+
+\bigskip
+In total we factored 8 out of 14 predictors: \{Sex, Marital, Occupation, Dual Income, Status, Home Type, Ehtnic, Language\}.
+The data is structured as follows:
+<<size="small">>=
+str(marketing)
+@
+
+\subsubsection*{Missing Values Inputation}
+
+A simple approach is to simply remove rows that contain at least a single missing predictor.
+<<echo=FALSE>>=
+marketingRaw = marketing
+@
+<<size="small">>=
+# Remove row if it contains any missing predictor
+marketing = marketing[complete.cases(marketing),]
+@
+
+However, by doing this we discard about 25\% of our dataset:
+<<echo=FALSE>>=
+paste("Updated number of rows:", nrow(marketing))
+paste("Raw/Updated number of rows (%): ", round(nrow(marketing)/nrow(marketingRaw)*100,1), "%")
+@
+
+Therefore, alternative methods should be considered.
+% Such as, blablabla .. apply them
+
+\subsection{Summary Statistics}
+
+As we are trying to predict annual income, we can start by observing how the data that on income is distributed:
+
+<<echo=FALSE, out.width='5in', fig.align="center">>=
+hist(marketing$Income, main="Distribution of Annual Income of Household", xla="Income")
+@
+
+We could create pair plots for predictors, but 
+
+<<size="small">>=
+summary(marketing)
+@
+
+
+\section{Frequentist Analysis}
+
+
+<<>>=
+
+@
+
+% Explain which methods are applied and why
+
+% Plot
+
+% Choose Model
+
+\section{Bayesian Analysis}
+
+% Explain which methods are applied and why
+
+% Plot
+
+% Choose Model
+
+\section{Discussion}
+
+% Comparison of Frequentist and Bayesian approaches
 
 \end{document}
