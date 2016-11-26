@@ -255,6 +255,21 @@ ggplot() +
 % Plot
 
 % Choose Model
+We first use Gibbs Sampling to generate posterior distributions for coefficients of all the predictors. This was achieved using the following model in rJAGS,
+<<size="small">>=
+modelstring="model{
+  for(i in 1:n){
+    Y[i]~dnorm(Ymean[i],tau)
+    Ymean[i]<-beta0+inprod(X[i,],beta)
+  }
+  tau~dgamma(1,0.001)
+  beta0~dnorm(0,0.0001)
+  for(j in 1:p){
+    beta[j]~dnorm(0,0.001)
+  }
+}
+"
+@
 
 \section{Discussion}
 
