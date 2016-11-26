@@ -4,7 +4,8 @@
 \usepackage{fancyhdr}
 \usepackage{enumerate}
 \usepackage{float}
-\usepackage{indentfirst}
+
+\setlength{\parindent}{0cm}
 
 \renewcommand{\topfraction}{0.9}
 \pagestyle{fancy}
@@ -29,8 +30,11 @@ library(ggplot2)
 library(MASS)
 library(leaps)
 library(glmnet)
+library(corrplot)
+library(pls)
 
 data(marketing)
+marketingRaw = marketing
 set.seed(1337)
 @
 
@@ -92,18 +96,19 @@ marketing$Language = factor(marketing$Language,
 @
 
 \bigskip
-In total we factored 8 out of 14 predictors: \{Sex, Marital, Occupation, Dual Income, Status, Home Type, Ehtnic, Language\}.
-The data is structured as follows:
+In total we factored 8 out of 14 predictors: \{Sex, Marital, Occupation, Dual Income, Status, Home Type, Ehtnic, Language\}. After factoring the relevant predictors, the data is structured as follows:
 <<size="small">>=
 str(marketing)
 @
 
-\subsubsection*{Missing Values Inputation}
+\subsubsection*{Missing Values Imputation}
 
 A simple approach is to simply remove rows that contain at least a single missing predictor.
 <<echo=FALSE>>=
-marketingRaw = marketing
+marketingRaw = marketingRaw[complete.cases(marketingRaw),]
 @
+
+
 <<size="small">>=
 # Remove row if it contains any missing predictor
 marketing = marketing[complete.cases(marketing),]
@@ -120,42 +125,55 @@ Therefore, alternative methods should be considered.
 
 \subsection{Summary Statistics}
 
-As we are trying to predict annual income, we can start by observing how the data that on income is distributed:
-
-<<echo=FALSE, out.width='5in', fig.align="center">>=
-#ggplot(marketing, aes(x=Income)) +
-#  geom_histogram(bins=50) + scale_x_continuous(limits=c(0,10), breaks = 1:9) +
-#  ggtitle("Distribution of Annual Income of Household")
-hist(marketing$Income, main="Distribution of Annual Income of Household", xla="Income", col="gray")
+As we are trying to predict annual income, we can start by observing how the data on income is distributed.
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histogram of Income and distribution of Income against Sex.', fig.align="center", warning=FALSE>>=
+ggplot(marketing, aes(x=Income)) +
+  geom_histogram(bins=35) + scale_x_continuous(limits=c(0,10), breaks = 1:9)
+ggplot(marketing, aes(y=Income, x=Sex)) + 
+  geom_boxplot(aes(fill=Sex), width=0.6)
 @
 
-We could create pair plots for predictors, but 
+We can also look at how Income varies against other predictors by creating independent boxplots. We can observe that some predictors seem to contain noticeable difference between Incomes for available categories.
 
-<<size="small">>=
-summary(marketing)
+\bigskip
+We can check for redundancy between co-variates by computing and plotting the correlation matrix. However, computing Pearson's or Spearman's correlation between a nominal and a continuous numeric value is not appropriate. Therefore, we only compute the correlation between predictors that can be considered numeric. There are more suitable methods to test the independence or measure the association between two nominal or one nominal and numeric co-variates, such as the Chi-Square test and Crammer's V measure of correlation. Yet, we do not cover those here.
+
+<<echo=FALSE, size="small",fig.cap='Income against predictors and correlation plot of numeric variables.', fig.align="center", warning=FALSE, out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H'>>=
+ggplot(data = melt(marketingRaw[, -2], id.var = "Income"), 
+       aes(y=Income, x=value)) + 
+  geom_boxplot(aes(group=value)) +
+  facet_wrap(~ variable, scales="free")
+
+corrplot:::corrplot(cor(marketing[, sapply(marketing, class) != "factor"]))
 @
 
 
 \section{Frequentist Analysis}
 
-We start by splitting the data into train and test sets:
+In this section we try to present a generalized linear model built from a frequentist approach. We will start by applying methods that try to reduce the dimensionality of the problem and perform variable selection, in order to understand which predictors are more relevant than others and detect if any can be discarded.
 
+We start by splitting the data into train and test sets and performing principal component analysis. This enables us to understand how many components are required to explain the majority of variance in the data.
 <<size="small">>=
 x=model.matrix(Income~.,-1,data=marketing)[,-1]
 y=marketing$Income
 
 train=sample(1:nrow(x), nrow(x)*0.5)
 test=(-train)
+
+pcr.fit = pcr(Income~., data=marketing[train, ], scale=TRUE, validation="CV")
+# Number of components necessary to explain at least 80% of variance
+pcr.comp.80 = pcr.fit$ladings[,which(pcr.fit$importance[3,] >= 0.80)]
+
+# Running model on test set
+pcr.pred = predict(pcr.fit, x[test,], ncomp=32)
+pcr.mse = mean((pcr.pred-y[test])^2)
+
+paste("Number of components (80% var) =", pcr.comp.80)
+paste("MSE on test set =", pcr.mse)
 @
 
-
-PCR
-<<>>=
-
-@
-
-Lasso can be used for variable selection. 
-<<size="small">>=
+Alternatively, Lasso can be used for variable selection and produce a generalized linear model where less important variables are shrunk towards zero.
+<<size="small", out.width='4.5in', fig.align="center">>=
 # Fitting a generalized model via penalized maximum likelihood
 lasso.model = glmnet(x, y, alpha=1, lambda=10^seq(10, -2, length=100))
 # Finding best lambda
@@ -165,40 +183,68 @@ bestlam = cv.out$lambda.min
 lasso.pred = predict(lasso.model, s=bestlam, newx = x[test,])
 lasso.mse = mean((lasso.pred - y[test])^2)
 lasso.coef = predict(lasso.model, type="coefficients", s=bestlam)
+lasso.residuals = lasso.pred - y[test]
 
-#plot(cv.out,main="Lasso")
-
-lasso.mse
-lasso.coef
+paste("MSE test for g.l. model fitted via Lasso =", lasso.mse)
 @
 
-Inspecting the residuals of the predicted values linear model with coefficients generated by lasso:
+Looking at the plots produced by both methods we can denote some degree of agreeability between the two, as both require more than 30 components/co-variates in order to minimize the MSE (down to value approximately equal to 4).
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Introspection plots for lasso and pcr.', fig.align="center">>=
+plot(cv.out, main="Lasso")
+validationplot(pcr.fit, val.type="MSEP", main="Pcr")
+@
 
-<<size="small">>=
-residuals = lasso.pred - y[test]
+Still, is of interest to analyse the residuals to see if these provide a good represention of the random and unpredictable characteristics of the error term.
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.align="center">>=
+hist(lasso.residuals, main = "", xlab="")
+qqnorm(lasso.residuals, main = "")
+@
 
-par(mfrow = c(2,2))
-hist(residuals)
-qqnorm(residuals)
-hist(y[test], main="Histogram of Income (test set)", xlab = "Income")
-hist(lasso.pred, main="Histogram of Income (predicted)", xlab = "Income")
+By inspecting the distribution of residuals and associated QQ plot, we can observe that the residuals are reasonably well behaved, i.e. normally distributed and centered around zero. At first this may indicate that the choice of model is appropriate, however by
+
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Plots for inspecting residuals: Histogram of residuals, QQ plot and residuals plotted against true and fitted values of Income.', fig.align="center">>=
+plot(x = y[test], y = lasso.residuals, xlab="Test values", ylab="Residuals")
+plot(x = lasso.pred, y = lasso.residuals, xlab="Fitted values", ylab="Residuals")
+@
+
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(lasso.pred, main="Predicted", xlab = "Income", col="gray")
 @
 
 
-As our output is ordered we may think about apply an ordered logistic regression model.
-<<cache=TRUE, size="small">>=
-m <- polr(as.ordered(as.ordered(y)) ~ x, data = marketing, Hess=TRUE)
-summary(m)
-confint(m)
+
+Given that our output is ordered we may think about applying ordered logistic regression.
+<<cache=TRUE, size="small", message=FALSE, warning=FALSE>>=
+olr.model = polr(as.ordered(as.ordered(y)) ~ x, data = marketing, Hess=TRUE)
+olr.cis = confint(olr.model)
+olr.predict = predict(olr.model, x)
 @
+
 <<echo=FALSE>>=
+olr.cis.ratio = olr.cis[,1]/olr.cis[,2]
+names(olr.cis.ratio) = rownames(olr.cis)
+olr.cis.ratio = sort(olr.cis.ratio)
+olr.cis.ratio.belowZero = olr.cis.ratio[olr.cis.ratio <= 0]
+olr.cis.ratio.greaterZero = olr.cis.ratio[olr.cis.ratio >= 0]
+nBelowZero = length(olr.cis.ratio.belowZero)
+nAboveZero = length(olr.cis.ratio.greaterZero)
 
+ggplot() +
+  geom_point(data=melt(olr.cis.ratio.greaterZero), 
+             aes(y=value, x=(nBelowZero+1):(nBelowZero+nAboveZero)), colour="cadetblue3", size=2) +
+  geom_point(data=melt(olr.cis.ratio.belowZero), 
+             aes(y=value, x=1:length(olr.cis.ratio.belowZero), 
+                 color=names(olr.cis.ratio.belowZero)), size=2) +
+  #geom_label(size=2.5, fontface="bold", fill="cadetblue3", colour="white") +
+  geom_hline(yintercept=0) +
+  xlab("Index") +
+  ylab("Ratio between upper and lower CI") +
+  theme_bw() +
+  theme(legend.position="top", legend.text = element_text(size=6)) +
+  labs(color="Ineffective Predictors")
 @
 
-
-% Explain which methods are applied and why
-
-% Plot
 
 % Choose Model
 
