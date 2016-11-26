@@ -205,12 +205,20 @@ confint(m)
 \section{Bayesian Analysis}
 
 % Explain which methods are applied and why
+In order to compare our Bayesian results with the Frequentist approach we use a training set to build the model and use this to make predictions using a test set. The error between the prediction and actual result can then be computed and compared between the different approaches.\\
 
 % Plot
 
 % Choose Model
-We first use Gibbs Sampling to generate posterior distributions for coefficients of all the predictors. This was achieved using the following model in rJAGS,
+We first use Gibbs Sampling to generate posterior distributions for coefficients of all the predictors. This was achieved using the following model in RJAGS with 10000 iterations using the training data set,
 <<size="small">>=
+mf=model.frame(Income~.,data=marketing[train,])
+Y=model.response(mf)
+X=model.matrix(Income~.,mf)
+n=nrow(X)
+p=ncol(X)
+data=list(n=n,p=p,Y=Y,X=X)
+init=list(tau=1,beta=rep(0,p))
 modelstring="model{
   for(i in 1:n){
     Y[i]~dnorm(Ymean[i],tau)
@@ -224,6 +232,117 @@ modelstring="model{
 }
 "
 @
+
+
+<<echo=FALSE, warning=FALSE, message=FALSE>>=
+set.seed(1337)
+train=sample(1:nrow(marketing), nrow(marketing)*0.5)
+test=(-train)
+gibbsModel<-readRDS(paste(getwd(),"/TRAIN_GibbsSamplingMatrix.rdata",sep=""))
+testMF=model.frame(Income~.,data=marketing[test,])
+Y=model.response(testMF)
+X=model.matrix(Income~.,testMF)
+
+gibbsPredict=function(modelOutput,x){
+  modelMatrix=as.matrix(modelOutput)
+  modelCoeff=as.vector(colMeans(modelMatrix))
+  beta0=modelCoeff[ncol(modelMatrix)-1]
+  beta=modelCoeff[1:(ncol(modelMatrix)-2)]
+  y=numeric(nrow(x))
+  y=beta0+x%*%beta
+}
+@
+
+The posterior distributions can then be used to make predictions using the test set. The error between these predictions and the actual result is calculated as $4.15065$.\\
+<<size="small">>=
+marketingGibbsPredict=gibbsPredict(gibbsModel,X)
+mean((marketingGibbsPredict-marketing[test,]$Income)^2)
+@
+
+But as in the frequentist Lasso method, not all predictors need to be included. Next we use Bayesian variable selection with random effects and a prior on the inclusion probability to build a model that does not necessarily include all predictors. This was achieved using the following model with 10000 iterations on the training set,
+
+<<size="small">>=
+mf=model.frame(Income~.,data=marketing[train,])
+Y=model.response(mf)
+X=model.matrix(Income~.,mf)
+n=nrow(X)
+p=ncol(X)
+data=list(n=n,p=p,Y=Y,X=X)
+init=list(tau=1,beta=rep(0,p))
+modelstring="model{
+  for(i in 1:n){
+    Y[i]~dnorm(Ymean[i],tau)
+    Ymean[i]<-beta0+inprod(X[i,],beta)
+  }
+  tau~dgamma(1,0.001)
+  beta0~dnorm(0,0.0001)
+  for(j in 1:p){
+  beta[j]~dnorm(0,0.001)
+  }
+}
+"
+@
+
+<<echo=FALSE, warning=FALSE, message=FALSE>>=
+set.seed(1337)
+train=sample(1:nrow(marketing), nrow(marketing)*0.5)
+test=(-train)
+gibbsVarSelectModel<-readRDS(paste(getwd(),"/TRAIN_GibbsVariableSelectionMatrix.rdata",sep=""))
+testMF=model.frame(Income~.,data=marketing[test,])
+Y=model.response(testMF)
+X=model.matrix(Income~.,testMF)
+n=nrow(X)
+p=ncol(X)
+
+gibbsVarSelectPredict=function(modelOutput,x){
+  modelMatrix=as.matrix(modelOutput)
+  modelCoeff=as.vector(colMeans(modelMatrix))
+  alpha=modelCoeff[1]
+  beta=modelCoeff[2:37]
+  ind=modelCoeff[38:73]
+  pind=modelCoeff[74]
+  tau=modelCoeff[75]
+  taub=modelCoeff[76]
+  y=numeric(nrow(x))
+  y=alpha+x%*%(beta*ind)
+}
+@
+
+<<echo=FALSE, warning=FALSE, message=FALSE>>=
+inds=round(colMeans(gibbsVarSelectModel))[38:73]
+zeroNames=NULL
+nonzeroNames=NULL
+for(i in 1:36){
+  if(inds[i]==0){
+    zeroNames=rbind(zeroNames,colnames(X)[i])
+  }
+  else{
+    nonzeroNames=rbind(nonzeroNames,colnames(X)[i])
+  }
+}
+@
+
+The predictors included in the model selected by this method are,
+
+<<size="small">>=
+nonzeroNames[,1]
+@
+
+The predictors not included in the model are,
+
+<<size="small">>=
+zeroNames[,1]
+@
+
+
+The model built using this method can be used to make predictions using the test set. The difference between these predictions and the actual results is calculated as $4.198349$.
+
+<<size="small">>=
+marketingGibbsVarSelectPredict=gibbsVarSelectPredict(gibbsVarSelectModel,X)
+mean((marketingGibbsVarSelectPredict-marketing[test,]$Income)^2)
+@
+
+
 
 \section{Discussion}
 
