@@ -192,6 +192,8 @@ lasso.mse = mean((lasso.pred - y[test])^2)
 lasso.coef = predict(lasso.model, type="coefficients", s=bestlam)
 lasso.residuals = lasso.pred - y[test]
 @
+
+
 <<echo=FALSE>>=
 paste("MSE test for g.l. model fitted via Lasso =", lasso.mse)
 @
@@ -430,7 +432,7 @@ hist(marketingGibbsVarSelectPredict, main="Predicted", xlab = "Income", col="gra
 \section{Discussion}
 
 % Comparison of Frequentist and Bayesian approaches
-
+The MSE for each of the methods explored in this report are given below,
 <<echo=FALSE>>=
 paste("Method: PCR                       MSE=",pcr.mse)
 paste("Method: Lasso                     MSE=",lasso.mse)
@@ -438,5 +440,10 @@ paste("Method: OLR                       MSE=",olr.mse)
 paste("Method: Gibbs Sampling            MSE=",gibbs.mse)
 paste("Method: Gibbs Variable Selection  MSE=",gibbsVarSelect.mse)
 @
+The methods PCR, Lasso, Gibbs Sampling and Gibbs Variable Selection all give very similar, and low, MSE results for the test set. The ordinal logisitic regression method however gives a much larger MSE indicating that this is not a good model to use.\\
+
+The Lasso variable selection method suggests that we ignore the predictors $EthnicBlack$, $EthnicOther$ and $LanguageOther$. The Gibbs variable selection method also suggests we ignore these predictors, however it suggests we ignore ten additional predictors. This would create a simpler model based on less predictors which may be preferable. When we compare the MSE for these two methods we see that Lasso still gives a lower MSE for the test set than the Gibbs variable selection method, despite using a more complicated model for the data. The differences in MSE, between Lasso and Gibbs variable selection, are very small (less than 3\%) and selecting a different randomly sampled test and training set might give slightly different results. \\ 
+
+
 
 \end{document}
