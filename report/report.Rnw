@@ -174,6 +174,11 @@ paste("Number of components (80% var) =", pcr.comp.80)
 paste("MSE on test set =", pcr.mse)
 @
 
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income using PCR'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(pcr.pred, main="Predicted", xlab = "Income", col="gray")
+@
+
 Alternatively, Lasso can be used for variable selection and produce a generalized linear model where less important variables are shrunk towards zero.
 <<size="small", out.width='4.5in', fig.align="center">>=
 # Fitting a generalized model via penalized maximum likelihood
@@ -315,9 +320,19 @@ gibbsPredict=function(modelOutput,x){
 @
 
 The posterior distributions can then be used to make predictions using the test set. The error between these predictions and the actual result is calculated as $4.15065$.\\
-<<size="small">>=
+<<echo=FALSE>>=
 marketingGibbsPredict=gibbsPredict(gibbsModel,X)
-mean((marketingGibbsPredict-marketing[test,]$Income)^2)
+gibbs.mse=mean((marketingGibbsPredict-marketing[test,]$Income)^2)
+@
+
+<<echo=FALSE>>=
+paste("MSE test for ordered Gibbs Sampling model =", gibbs.mse)
+@
+
+
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income using Gibbs Sampling'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(marketingGibbsPredict, main="Predicted", xlab = "Income", col="gray")
 @
 
 But as in the frequentist Lasso method, not all predictors need to be included. Next we use Bayesian variable selection with random effects and a prior on the inclusion probability to build a model that does not necessarily include all predictors. This was achieved using the following model with 10000 iterations on the training set,
@@ -398,15 +413,30 @@ zeroNames[,1]
 
 The model built using this method can be used to make predictions using the test set. The difference between these predictions and the actual results is calculated as $4.198349$.
 
-<<size="small">>=
+<<echo=FALSE>>=
 marketingGibbsVarSelectPredict=gibbsVarSelectPredict(gibbsVarSelectModel,X)
-mean((marketingGibbsVarSelectPredict-marketing[test,]$Income)^2)
+gibbsVarSelect.mse=mean((marketingGibbsVarSelectPredict-marketing[test,]$Income)^2)
 @
 
+<<echo=FALSE>>=
+paste("MSE test for ordered Gibbs Variable Selection model =", gibbsVarSelect.mse)
+@
 
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income using Gibbs Sampling Variable Selection'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(marketingGibbsVarSelectPredict, main="Predicted", xlab = "Income", col="gray")
+@
 
 \section{Discussion}
 
 % Comparison of Frequentist and Bayesian approaches
+
+<<echo=FALSE>>=
+paste("Method: PCR                       MSE=",pcr.mse)
+paste("Method: Lasso                     MSE=",lasso.mse)
+paste("Method: OLR                       MSE=",olr.mse)
+paste("Method: Gibbs Sampling            MSE=",gibbs.mse)
+paste("Method: Gibbs Variable Selection  MSE=",gibbsVarSelect.mse)
+@
 
 \end{document}
