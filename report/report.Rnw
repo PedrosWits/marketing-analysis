@@ -43,11 +43,11 @@ set.seed(1337)
 
 \section{Introduction and Exploratory Analysis}
 
-In this paper we build and compare several models for predicting Income within the $marketing$ dataset. Both frequentist and bayesian methods are considered and put into practice. Although the main objective is to produce a model that can be used for prediction, we also examine models that hold higher interpretability and therefore are better suited for performing inference.
+In this paper we build and compare several models for predicting Income within the $marketing$ dataset. Both frequentist and bayesian methods are considered and put into practice. Although the main objective is to produce a model that can be used for prediction, we also take into account its interpretability and therefore how useful it is for performing inference.
 
 \subsection{Pre-processing}
 
-The dataset is composed exclusively of numeric categorical variables. However, some are ordered and can be treated as continous while others are nominal and need to be converted to (unordered) factors as it does not make sense to treat them as continuous variables. For instance, Age is represented by discrete values in the range 1 through 7, where each value corresponds to an age interval. Therefore a decimal value for instance of 3.4 would be acceptable and representable within the spectrum of possible ages. On the other hand, Sex is represented by values 1 (Male) or 2 (Female) and a decimal value that lies between those does not make sense.
+The dataset is composed exclusively of numeric variables which are categorical in nature. Some are ordered and can be treated as continous while others are nominal and need to be converted to (unordered) factors as it does not make sense to treat them as continuous variables. For instance, Age is represented by discrete values in the range 1 through 7, where each value corresponds to an age interval. Therefore a decimal value ,for instance of 3.4, would be acceptable and representable within the spectrum of possible ages. On the other hand, Sex is represented by values 1 (Male) or 2 (Female) and a decimal value that lies between those does not make sense.
 
 <<echo=FALSE>>=
 marketing$Sex = factor(marketing$Sex,
@@ -107,8 +107,6 @@ A simple approach is to simply remove rows that contain at least a single missin
 <<echo=FALSE>>=
 marketingRaw = marketingRaw[complete.cases(marketingRaw),]
 @
-
-
 <<size="small">>=
 # Remove row if it contains any missing predictor
 marketing = marketing[complete.cases(marketing),]
@@ -133,7 +131,7 @@ ggplot(marketing, aes(y=Income, x=Sex)) +
   geom_boxplot(aes(fill=Sex), width=0.6)
 @
 
-We can also look at how Income varies against other predictors by creating independent boxplots. We can observe that some predictors seem to contain noticeable difference between Incomes for available categories.
+We can also look at how Income varies against other predictors by creating independent boxplots. We can observe that some predictors seem to contain noticeable differences between Incomes for available categories.
 
 \bigskip
 We can check for redundancy between co-variates by computing and plotting the correlation matrix. However, computing Pearson's or Spearman's correlation between a nominal and a continuous numeric value is not appropriate. Therefore, we only compute the correlation between predictors that can be considered numeric. There are more suitable methods to test the independence or measure the association between two nominal or one nominal and numeric co-variates, such as the Chi-Square test and Crammer's V measure of correlation. Yet, we do not cover those here.
@@ -150,8 +148,8 @@ corrplot:::corrplot(cor(marketing[, sapply(marketing, class) != "factor"]))
 
 \section{Frequentist Analysis}
 
-In this section we try to present a generalized linear model built from a frequentist approach. We will start by applying methods that try to reduce the dimensionality of the problem and perform variable selection, in order to understand which predictors are more relevant than others and detect if any can be discarded.
-
+In this section we try to develop a generalized linear model from a frequentist approach. We start by applying methods that try to reduce the dimensionality of the problem and perform variable selection, in order to understand which predictors are more relevant than others and detect if any can be discarded.
+\bigskip
 We start by splitting the data into train and test sets and performing principal component analysis. This enables us to understand how many components are required to explain the majority of variance in the data.
 <<size="small">>=
 x=model.matrix(Income~.,-1,data=marketing)[,-1]
@@ -160,23 +158,23 @@ y=marketing$Income
 train=sample(1:nrow(x), nrow(x)*0.5)
 test=(-train)
 
-pcr.fit = pcr(Income~., data=marketing[train, ], scale=TRUE, validation="CV")
-# Number of components necessary to explain at least 80% of variance
-pcr.comp.80 = pcr.fit$ladings[,which(pcr.fit$importance[3,] >= 0.80)]
+pcr.fit = pcr(Income~., data=marketing, subset=train, scale=TRUE, validation="CV")
 
-# Running model on test set
-pcr.pred = predict(pcr.fit, x[test,], ncomp=32)
-pcr.mse = mean((pcr.pred-y[test])^2)
+# Find the number of components that minimizes TEST MSE
+pred.pcr = predict(pcr.fit, ncomp = 1:35, newdata=marketing[test,])
+pcr.mses = apply(pred.pcr, 3, function(i) mean((i- y[test])^2)) #
+
 @
 <<echo=FALSE>>=
-paste("Number of components (80% var) =", pcr.comp.80)
-paste("PCR MSE on test set =", round(pcr.mse))
+paste("Min PCR MSE on test set =", round(min(pcr.mses), 2))
+paste("Number of components =", which.min(pcr.mses))
 @
-
+As we can see, most components are necessary the explain the majority of variance. Furthermore the number of components that minimizes the MSE on the test set is close to the maximum number of components. Therefore, principal component analysis fails to simplify the problem and provide a considerable reduction in the dimensionality of the problem.
+\bigskip
 Alternatively, Lasso can be used for variable selection and produce a generalized linear model where less important variables are shrunk towards zero.
 <<size="small", out.width='4.5in', fig.align="center">>=
 # Fitting a generalized model via penalized maximum likelihood
-lasso.model = glmnet(x, y, alpha=1, lambda=10^seq(10, -2, length=100))
+lasso.model = glmnet(x[train,], y[train], alpha=1, lambda=10^seq(10, -2, length=100))
 # Finding best lambda
 cv.out = cv.glmnet(x[train,],y[train],alpha=1)
 bestlam = cv.out$lambda.min
@@ -185,19 +183,13 @@ lasso.pred = predict(lasso.model, s=bestlam, newx = x[test,])
 lasso.mse = mean((lasso.pred - y[test])^2)
 lasso.coef = predict(lasso.model, type="coefficients", s=bestlam)
 lasso.residuals = lasso.pred - y[test]
-
 @
 <<echo=FALSE>>=
-paste("Lasso MSE on test set =", lasso.mse)
+paste("Number of coefficients zeroed out =", length(which(lasso.coef == 0)))
+paste("Lasso MSE on test set =", round(lasso.mse,2))
 @
 
-Looking at the plots produced by both methods we can denote some degree of agreeability between the two, as both require more than 30 components/co-variates in order to minimize the MSE (to value approximately equal to 4).
-<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Introspection plots for lasso and pcr.', fig.align="center">>=
-plot(cv.out, main="Lasso")
-validationplot(pcr.fit, val.type="MSEP", main="Pcr")
-@
-
-Still, is of interest to analyse the residuals to see if these provide a good represention of the random and unpredictable characteristics of the error term.
+We can see that only 3 out of 36 coefficients were actually zeroed out by Lasso. Moreover, it is usually good practice and of interest to analyse the residuals to check if these provide a good represention of the random and unpredictable characteristics of the error term.
 <<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.align="center">>=
 hist(lasso.residuals, main = "", xlab="")
 qqnorm(lasso.residuals, main = "")
@@ -212,29 +204,38 @@ plot(x = lasso.pred, y = lasso.residuals, xlab="Fitted values", ylab="Residuals"
 
 In fact, we can observe a slight pattern: while the residuals for some categories are centered around zero, they are not for others. This becomes apparent if we compare the histograms for predicted and true values. The model strongly under-predicts values from categories at the tails, including the most common category (with value 1), and over-predicts values in the middle categories. This indicates that even though MSE is being minimised, our model is not very accurate when it comes to placing values in the correct category.
 
-<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income'>>=
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income -- Lasso'>>=
 hist(y[test], main="True", xlab = "Income", col="purple")
 hist(lasso.pred, main="Predicted", xlab = "Income", col="gray")
 @
 
-Alternatively, given that our output is ordered we may think about applying ordered logistic regression.
-<<cache=TRUE, size="small", message=FALSE, warning=FALSE>>=
-olr.model = polr(as.ordered(as.ordered(y)) ~ x, data = marketing, Hess=TRUE)
-olr.cis = confint(olr.model)
-olr.predict = predict(olr.model, x)
+Looking at the results and plots produced by both methods we can denote some degree of agreeability between the two, as both require more than 30 components/co-variates in order to minimize the MSE on the test set. However, a generalized linear model with coefficients computed via Lasso, provides a more interpretable model and therefore easier to explain how the dependent variables affect the output. Hence, we consider the second model to be preferable to the first.
 
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Introspection plots for lasso and pcr.', fig.align="center">>=
+plot(cv.out, main="Lasso")
+validationplot(pcr.fit, val.type="MSEP", main="Pcr")
+@
+
+Alternatively, given that our output is inherently ordered we may think about looking at extensions of the generalized linear model. Namely, we may think about applying ordered logistic regression, which treats the output as an ordered categorical variable instead of a continuous numeric variable (as Lasso did). To that extent, we fit a proportional odds model using the polr function:
+<<cache=TRUE, size="small", message=FALSE, warning=FALSE>>=
+marketing$Income = as.ordered(marketing$Income)
+olr.model = polr(Income ~., data = marketing, subset= train, Hess=TRUE)
+olr.cis = confint(olr.model)
+olr.predict = predict(olr.model, marketing[test,])
+@
+<<echo=FALSE>>=
+olr.residuals = as.numeric(olr.predict) - y[test]
 olr.mse = mean((as.numeric(olr.predict) - y[test])^2)
 paste("OLR MSE on test set =", round(olr.mse))
+paste("Number of categories accurately predicted =", sum(olr.predict == y[test]))
 @
 
-<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income'>>=
-hist(y[test], main="True", xlab = "Income", col="purple")
-hist(as.numeric(olr.predict), main="Predicted", xlab = "Income", col="gray")
-@
+Where we compute the 95\% confidence intervals for the estimated co-variates. We can test the significance of a variable by checking whether the confidence interval contains zero or not. If it does, then it means that the predictor can both contribute positively and negatively to the output. Which is not a very consistent or effective predictor. Therefore, such predictors should be discarded. We try to represent effectiveness of predictors by multiplying the lower and upper terms of the interval. If the result is negative then it means that the interval contains zero, otherwise it does not. These points are represented in the plot below. We can see that a substantial amount of predictors are ineffective.
 
-We can compute the confidence intervals 
-<<echo=FALSE, out.width='11cm', out.height='11cm', fig.cap='Ratio between coefficients obtained at the 2.5 percent and 97.5 percent quantiles. Negative values indicate that the confidence interval contains zero and therefore is not an effective predictor.', fig.align="center">>=
-olr.cis.ratio = olr.cis[,1]/olr.cis[,2]
+<<echo=FALSE, out.width='14cm', out.height='14cm', fig.cap='Representation of the effectiveness of the estimated coefficients. Negative values indicate that the confidence interval contains zero and therefore is not an effective predictor.', fig.align="center">>=
+marketing$Income = as.numeric(marketing$Income)
+
+olr.cis.ratio = olr.cis[,1]*olr.cis[,2]
 names(olr.cis.ratio) = rownames(olr.cis)
 olr.cis.ratio = sort(olr.cis.ratio)
 olr.cis.ratio.belowZero = olr.cis.ratio[olr.cis.ratio <= 0]
@@ -256,20 +257,41 @@ ggplot() +
   theme(legend.position="top", legend.text = element_text(size=6)) +
   labs(color="Ineffective Predictors")
 @
+\bigskip
+Below we can observe the performance of the model at predicting the correct categories of the output. We see that the distribution of predicted values better resembles the true distribution when compared to Lasso. However, while it predicts the correct categories for the most frequent categories it fails to do so for the categories in between. In fact, it fails to assign values to certain categories altogether. The reason for why this happens should be further investigated.
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income -- OLR'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(as.numeric(olr.predict), main="Predicted", xlab = "Income", col="gray")
+@
+\bigskip
+Taking into account the three different methodologies, we consider that the generalized linear model with coefficients estimated via Lasso is the more consistent choice. Even though that the model fails to accurately predict values from the more frequent categories, it contains the lowest MSE on the test set and is the most interpretable model of the three.
+
+<<>>=
+proposed.model = glmnet(x, y, alpha=1, lambda=10^seq(10, -2, length=100))
+bestlam = cv.glmnet(x[train,],y[train],alpha=1)$lambda.min
+proposed.coef = predict(proposed.model, type="coefficients", s=bestlam)
+@
 
 
 % Choose Model
-
 
 \section{Bayesian Analysis}
 
 % Explain which methods are applied and why
+In order to compare our Bayesian results with the Frequentist approach we use a training set to build the model and use this to make predictions using a test set. The error between the prediction and actual result can then be computed and compared between the different approaches.\\
 
 % Plot
 
 % Choose Model
-We first use Gibbs Sampling to generate posterior distributions for coefficients of all the predictors. This was achieved using the following model in rJAGS,
+We first use Gibbs Sampling to generate posterior distributions for coefficients of all the predictors. This was achieved using the following model in RJAGS with 10000 iterations using the training data set,
 <<size="small">>=
+mf=model.frame(Income~.,data=marketing[train,])
+Y=model.response(mf)
+X=model.matrix(Income~.,mf)
+n=nrow(X)
+p=ncol(X)
+data=list(n=n,p=p,Y=Y,X=X)
+init=list(tau=1,beta=rep(0,p))
 modelstring="model{
   for(i in 1:n){
     Y[i]~dnorm(Ymean[i],tau)
@@ -284,8 +306,144 @@ modelstring="model{
 "
 @
 
+
+<<echo=FALSE, warning=FALSE, message=FALSE>>=
+set.seed(1337)
+train=sample(1:nrow(marketing), nrow(marketing)*0.5)
+test=(-train)
+gibbsModel<-readRDS(paste(getwd(),"/TRAIN_GibbsSamplingMatrix.rdata",sep=""))
+testMF=model.frame(Income~.,data=marketing[test,])
+Y=model.response(testMF)
+X=model.matrix(Income~.,testMF)
+
+gibbsPredict=function(modelOutput,x){
+  modelMatrix=as.matrix(modelOutput)
+  modelCoeff=as.vector(colMeans(modelMatrix))
+  beta0=modelCoeff[ncol(modelMatrix)-1]
+  beta=modelCoeff[1:(ncol(modelMatrix)-2)]
+  y=numeric(nrow(x))
+  y=beta0+x%*%beta
+}
+@
+
+The posterior distributions can then be used to make predictions using the test set. The error between these predictions and the actual result is calculated as $4.15065$.\\
+<<echo=FALSE>>=
+marketingGibbsPredict=gibbsPredict(gibbsModel,X)
+gibbs.mse=mean((marketingGibbsPredict-marketing[test,]$Income)^2)
+@
+
+<<echo=FALSE>>=
+paste("MSE test for ordered Gibbs Sampling model =", gibbs.mse)
+@
+
+
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income using Gibbs Sampling'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(marketingGibbsPredict, main="Predicted", xlab = "Income", col="gray")
+@
+
+But as in the frequentist Lasso method, not all predictors need to be included. Next we use Bayesian variable selection with random effects and a prior on the inclusion probability to build a model that does not necessarily include all predictors. This was achieved using the following model with 10000 iterations on the training set,
+
+<<size="small">>=
+mf=model.frame(Income~.,data=marketing[train,])
+Y=model.response(mf)
+X=model.matrix(Income~.,mf)
+n=nrow(X)
+p=ncol(X)
+data=list(n=n,p=p,Y=Y,X=X)
+init=list(tau=1,beta=rep(0,p))
+modelstring="model{
+  for(i in 1:n){
+    Y[i]~dnorm(Ymean[i],tau)
+    Ymean[i]<-beta0+inprod(X[i,],beta)
+  }
+  tau~dgamma(1,0.001)
+  beta0~dnorm(0,0.0001)
+  for(j in 1:p){
+  beta[j]~dnorm(0,0.001)
+  }
+}
+"
+@
+
+<<echo=FALSE, warning=FALSE, message=FALSE>>=
+set.seed(1337)
+train=sample(1:nrow(marketing), nrow(marketing)*0.5)
+test=(-train)
+gibbsVarSelectModel<-readRDS(paste(getwd(),"/TRAIN_GibbsVariableSelectionMatrix.rdata",sep=""))
+testMF=model.frame(Income~.,data=marketing[test,])
+Y=model.response(testMF)
+X=model.matrix(Income~.,testMF)
+n=nrow(X)
+p=ncol(X)
+
+gibbsVarSelectPredict=function(modelOutput,x){
+  modelMatrix=as.matrix(modelOutput)
+  modelCoeff=as.vector(colMeans(modelMatrix))
+  alpha=modelCoeff[1]
+  beta=modelCoeff[2:37]
+  ind=modelCoeff[38:73]
+  pind=modelCoeff[74]
+  tau=modelCoeff[75]
+  taub=modelCoeff[76]
+  y=numeric(nrow(x))
+  y=alpha+x%*%(beta*ind)
+}
+@
+
+<<echo=FALSE, warning=FALSE, message=FALSE>>=
+inds=round(colMeans(gibbsVarSelectModel))[38:73]
+zeroNames=NULL
+nonzeroNames=NULL
+for(i in 1:36){
+  if(inds[i]==0){
+    zeroNames=rbind(zeroNames,colnames(X)[i])
+  }
+  else{
+    nonzeroNames=rbind(nonzeroNames,colnames(X)[i])
+  }
+}
+@
+
+The predictors included in the model selected by this method are,
+
+<<size="small">>=
+nonzeroNames[,1]
+@
+
+The predictors not included in the model are,
+
+<<size="small">>=
+zeroNames[,1]
+@
+
+
+The model built using this method can be used to make predictions using the test set. The difference between these predictions and the actual results is calculated as $4.198349$.
+
+<<echo=FALSE>>=
+marketingGibbsVarSelectPredict=gibbsVarSelectPredict(gibbsVarSelectModel,X)
+gibbsVarSelect.mse=mean((marketingGibbsVarSelectPredict-marketing[test,]$Income)^2)
+@
+
+<<echo=FALSE>>=
+paste("MSE test for ordered Gibbs Variable Selection model =", gibbsVarSelect.mse)
+@
+
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income using Gibbs Sampling Variable Selection'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(marketingGibbsVarSelectPredict, main="Predicted", xlab = "Income", col="gray")
+@
+
 \section{Discussion}
 
 % Comparison of Frequentist and Bayesian approaches
+
+<<echo=FALSE>>=
+paste("Method: PCR                       MSE=",min(pcr.mses))
+paste("Method: Lasso                     MSE=",lasso.mse)
+paste("Method: OLR                       MSE=",olr.mse)
+paste("Method: Gibbs Sampling            MSE=",gibbs.mse)
+paste("Method: Gibbs Variable Selection  MSE=",gibbsVarSelect.mse)
+@
 
 \end{document}

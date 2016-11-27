@@ -6,8 +6,6 @@ rm(list=ls())
 ##############################
 #   Source exploration File  #
 ##############################
-#current_dir = dirname(sys.frame(1)$ofile)
-#source(paste(current_dir, "exploration.R", sep="/"))
 
 ######################################################################
 #                         Bayesian Approach                          #
@@ -91,7 +89,7 @@ model=jags.model(textConnection(modelstring),data=data,inits=init)
 update(model,n.iter=1000)
 output=coda.samples(model=model,variable.names=c("beta0","beta","tau"),n.iter=10000,thin=1)
 
-save(output,file="FULL_GibbsSamplingOutput.rdata")
+saveRDS(as.matrix(output),file="FULL_GibbsSamplingMatrix.RData")
 sink("FULL_GibbsSamplingOutput.txt")
 summary(output)
 sink()
@@ -135,7 +133,8 @@ init=list(tau=1,beta=rep(0,p))
 model=jags.model(textConnection(modelstring),data=data,inits=init)
 update(model,n.iter=1000)
 output=coda.samples(model=model,variable.names=c("beta0","beta","tau"),n.iter=10000,thin=1)
-save(output,file="TRAIN_GibbsSamplingOutput.rdata")
+
+saveRDS(as.matrix(output),file="TRAIN_GibbsSamplingMatrix.RData")
 sink("TRAIN_GibbsSamplingOutput.txt")
 summary(output)
 sink()
@@ -148,14 +147,11 @@ dev.off()
 pdf("TRAIN_GibbsSamplingCrosscorr.pdf")
 crosscorr.plot(output)
 dev.off()
-pdf("TRAIN_GibbsSamplingPairsOutput.pdf")
-pairs(as.matrix(output),pch=".")
-dev.off()
 
-trainOutput=as.matrix(output)
+
 
 # Make some predictions using the trained-model and see what the error is
-
+trainOutput=as.matrix(output)
 testMF=model.frame(Income~.,data=marketing[test,])
 Y=model.response(testMF)
 X=model.matrix(Income~.,testMF)
@@ -213,7 +209,7 @@ output=coda.samples(model=model,
                     variable.names=c("alpha","beta","ind","tau","taub","pind"),
                     n.iter=10000,thin=1)
 
-save(output,file="TRAIN_GibbsVariableSelection.rdata")
+saveRDS(as.matrix(output),file="TRAIN_GibbsVariableSelectionMatrix.RData")
 sink("TRAIN_GibbsVarSelect.txt")
 summary(output)
 sink()
@@ -231,9 +227,8 @@ dev.off()
 # Predict some data using the gibbs variable selection model
 #-----------------------------------------------------------------------------
 summary(output)
+
 trainVarSelectOutput=as.matrix(output)
-
-
 testMF=model.frame(Income~.,data=marketing[test,])
 Y=model.response(testMF)
 X=model.matrix(Income~.,testMF)
