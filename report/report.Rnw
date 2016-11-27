@@ -167,9 +167,10 @@ pcr.comp.80 = pcr.fit$ladings[,which(pcr.fit$importance[3,] >= 0.80)]
 # Running model on test set
 pcr.pred = predict(pcr.fit, x[test,], ncomp=32)
 pcr.mse = mean((pcr.pred-y[test])^2)
-
+@
+<<echo=FALSE>>=
 paste("Number of components (80% var) =", pcr.comp.80)
-paste("MSE on test set =", pcr.mse)
+paste("PCR MSE on test set =", round(pcr.mse))
 @
 
 Alternatively, Lasso can be used for variable selection and produce a generalized linear model where less important variables are shrunk towards zero.
@@ -185,10 +186,12 @@ lasso.mse = mean((lasso.pred - y[test])^2)
 lasso.coef = predict(lasso.model, type="coefficients", s=bestlam)
 lasso.residuals = lasso.pred - y[test]
 
-paste("MSE test for g.l. model fitted via Lasso =", lasso.mse)
+@
+<<echo=FALSE>>=
+paste("Lasso MSE on test set =", lasso.mse)
 @
 
-Looking at the plots produced by both methods we can denote some degree of agreeability between the two, as both require more than 30 components/co-variates in order to minimize the MSE (down to value approximately equal to 4).
+Looking at the plots produced by both methods we can denote some degree of agreeability between the two, as both require more than 30 components/co-variates in order to minimize the MSE (to value approximately equal to 4).
 <<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Introspection plots for lasso and pcr.', fig.align="center">>=
 plot(cv.out, main="Lasso")
 validationplot(pcr.fit, val.type="MSEP", main="Pcr")
@@ -200,28 +203,37 @@ hist(lasso.residuals, main = "", xlab="")
 qqnorm(lasso.residuals, main = "")
 @
 
-By inspecting the distribution of residuals and associated QQ plot, we can observe that the residuals are reasonably well behaved, i.e. normally distributed and centered around zero. At first this may indicate that the choice of model is appropriate, however by
+By inspecting the distribution of residuals and associated QQ plot, we can observe that the residuals are reasonably well behaved, i.e. normally distributed and centered around zero. At first this may indicate that the choice of model is appropriate, however we also need to check for residuals independence, i.e. that are not correlated.
 
 <<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Plots for inspecting residuals: Histogram of residuals, QQ plot and residuals plotted against true and fitted values of Income.', fig.align="center">>=
 plot(x = y[test], y = lasso.residuals, xlab="Test values", ylab="Residuals")
 plot(x = lasso.pred, y = lasso.residuals, xlab="Fitted values", ylab="Residuals")
 @
 
+In fact, we can observe a slight pattern: while the residuals for some categories are centered around zero, they are not for others. This becomes apparent if we compare the histograms for predicted and true values. The model strongly under-predicts values from categories at the tails, including the most common category (with value 1), and over-predicts values in the middle categories. This indicates that even though MSE is being minimised, our model is not very accurate when it comes to placing values in the correct category.
+
 <<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income'>>=
 hist(y[test], main="True", xlab = "Income", col="purple")
 hist(lasso.pred, main="Predicted", xlab = "Income", col="gray")
 @
 
-
-
-Given that our output is ordered we may think about applying ordered logistic regression.
+Alternatively, given that our output is ordered we may think about applying ordered logistic regression.
 <<cache=TRUE, size="small", message=FALSE, warning=FALSE>>=
 olr.model = polr(as.ordered(as.ordered(y)) ~ x, data = marketing, Hess=TRUE)
 olr.cis = confint(olr.model)
 olr.predict = predict(olr.model, x)
+
+olr.mse = mean((as.numeric(olr.predict) - y[test])^2)
+paste("OLR MSE on test set =", round(olr.mse))
 @
 
-<<echo=FALSE>>=
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(as.numeric(olr.predict), main="Predicted", xlab = "Income", col="gray")
+@
+
+We can compute the confidence intervals 
+<<echo=FALSE, out.width='11cm', out.height='11cm', fig.cap='Ratio between coefficients obtained at the 2.5 percent and 97.5 percent quantiles. Negative values indicate that the confidence interval contains zero and therefore is not an effective predictor.', fig.align="center">>=
 olr.cis.ratio = olr.cis[,1]/olr.cis[,2]
 names(olr.cis.ratio) = rownames(olr.cis)
 olr.cis.ratio = sort(olr.cis.ratio)
@@ -239,7 +251,7 @@ ggplot() +
   #geom_label(size=2.5, fontface="bold", fill="cadetblue3", colour="white") +
   geom_hline(yintercept=0) +
   xlab("Index") +
-  ylab("Ratio between upper and lower CI") +
+  ylab("Ratio") +
   theme_bw() +
   theme(legend.position="top", legend.text = element_text(size=6)) +
   labs(color="Ineffective Predictors")
@@ -247,6 +259,7 @@ ggplot() +
 
 
 % Choose Model
+
 
 \section{Bayesian Analysis}
 
