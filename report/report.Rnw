@@ -127,9 +127,9 @@ aggr_plot <-aggr(marketingRaw, col=c('navyblue','red'), numbers=TRUE, sortVars=T
 
 
 Therefore, alternative methods should be considered. One alternative is to use the R package $mice$ to impute the missing data:
-<<cache=TRUE,size="small">>=
-imputedData <- mice(marketingRaw, m=5, maxit = 50, method = 'pmm', seed = 500)
-marketingImputed=complete(imputedData,5)
+<<results='hide',message=FALSE,warning=FALSE,cache=TRUE,size="small">>=
+imputedData <- mice(marketingRaw, m=10, maxit = 50, method = 'pmm', seed = 500)
+marketingImputed=complete(imputedData,10)
 @
 In this report we have only used the entries in the $marketing$ data which have no missing fields. The analysis could easily be reproduced using the imputed dataset, however.
 % Such as, blablabla .. apply them
