@@ -105,7 +105,7 @@ str(marketing)
 
 A simple approach is to simply remove rows that contain at least a single missing predictor.
 <<echo=FALSE>>=
-marketingRaw = marketingRaw[complete.cases(marketingRaw),]
+marketingRaw = marketing
 @
 
 
@@ -152,8 +152,9 @@ corrplot:::corrplot(cor(marketing[, sapply(marketing, class) != "factor"]))
 
 In this section we try to present a generalized linear model built from a frequentist approach. We will start by applying methods that try to reduce the dimensionality of the problem and perform variable selection, in order to understand which predictors are more relevant than others and detect if any can be discarded.
 
-We start by splitting the data into train and test sets and performing principal component analysis. This enables us to understand how many components are required to explain the majority of variance in the data.
+We start by splitting the data into training and test sets and performing principal component analysis. This enables us to understand how many components are required to explain the majority of variance in the data.
 <<size="small">>=
+set.seed(1337)
 x=model.matrix(Income~.,-1,data=marketing)[,-1]
 y=marketing$Income
 
@@ -167,7 +168,8 @@ pcr.comp.80 = pcr.fit$ladings[,which(pcr.fit$importance[3,] >= 0.80)]
 # Running model on test set
 pcr.pred = predict(pcr.fit, x[test,], ncomp=32)
 pcr.mse = mean((pcr.pred-y[test])^2)
-
+@
+<<echo=FALSE>>=
 paste("Number of components (80% var) =", pcr.comp.80)
 paste("MSE on test set =", pcr.mse)
 @
@@ -184,7 +186,8 @@ lasso.pred = predict(lasso.model, s=bestlam, newx = x[test,])
 lasso.mse = mean((lasso.pred - y[test])^2)
 lasso.coef = predict(lasso.model, type="coefficients", s=bestlam)
 lasso.residuals = lasso.pred - y[test]
-
+@
+<<echo=FALSE>>=
 paste("MSE test for g.l. model fitted via Lasso =", lasso.mse)
 @
 
@@ -194,7 +197,7 @@ plot(cv.out, main="Lasso")
 validationplot(pcr.fit, val.type="MSEP", main="Pcr")
 @
 
-Still, is of interest to analyse the residuals to see if these provide a good represention of the random and unpredictable characteristics of the error term.
+Still, it is of interest to analyse the residuals to see if these provide a good represention of the random and unpredictable characteristics of the error term.
 <<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.align="center">>=
 hist(lasso.residuals, main = "", xlab="")
 qqnorm(lasso.residuals, main = "")
@@ -207,7 +210,7 @@ plot(x = y[test], y = lasso.residuals, xlab="Test values", ylab="Residuals")
 plot(x = lasso.pred, y = lasso.residuals, xlab="Fitted values", ylab="Residuals")
 @
 
-<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income'>>=
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income using Lasso'>>=
 hist(y[test], main="True", xlab = "Income", col="purple")
 hist(lasso.pred, main="Predicted", xlab = "Income", col="gray")
 @
@@ -216,14 +219,19 @@ hist(lasso.pred, main="Predicted", xlab = "Income", col="gray")
 
 Given that our output is ordered we may think about applying ordered logistic regression.
 <<cache=TRUE, size="small", message=FALSE, warning=FALSE>>=
-olr.model = polr(as.ordered(as.ordered(y)) ~ x, data = marketing, Hess=TRUE)
+olr.model = polr(as.ordered(as.ordered(y[train])) ~ x[train,],Hess=TRUE)
 olr.cis = confint(olr.model)
-olr.predict = predict(olr.model, x)
+olr.predict = as.numeric(predict(olr.model, x[test,]))
+olr.mse=mean((y[test]-olr.predict)^2)
+@
+
+<<echo=FALSE>>=
+paste("MSE test for ordered logistic regression model =", olr.mse)
 @
 
 <<echo=FALSE>>=
 olr.cis.ratio = olr.cis[,1]/olr.cis[,2]
-names(olr.cis.ratio) = rownames(olr.cis)
+names(olr.cis.ratio) = substring(rownames(olr.cis),11)
 olr.cis.ratio = sort(olr.cis.ratio)
 olr.cis.ratio.belowZero = olr.cis.ratio[olr.cis.ratio <= 0]
 olr.cis.ratio.greaterZero = olr.cis.ratio[olr.cis.ratio >= 0]
@@ -244,6 +252,13 @@ ggplot() +
   theme(legend.position="top", legend.text = element_text(size=6)) +
   labs(color="Ineffective Predictors")
 @
+
+
+<<echo=FALSE, size="small", out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H', fig.cap='Histograms for true and predicted values of Income using ordered logistic regression'>>=
+hist(y[test], main="True", xlab = "Income", col="purple")
+hist(olr.predict, main="Predicted", xlab = "Income", col="gray")
+@
+
 
 
 % Choose Model
