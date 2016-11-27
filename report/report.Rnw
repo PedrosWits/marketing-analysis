@@ -32,6 +32,8 @@ library(leaps)
 library(glmnet)
 library(corrplot)
 library(pls)
+library(VIM)
+library(mice)
 
 data(marketing)
 marketingRaw = marketing
@@ -105,7 +107,7 @@ str(marketing)
 
 A simple approach is to simply remove rows that contain at least a single missing predictor.
 <<echo=FALSE>>=
-marketingRaw = marketingRaw[complete.cases(marketingRaw),]
+marketingRaw = marketing
 @
 <<size="small">>=
 # Remove row if it contains any missing predictor
@@ -118,7 +120,18 @@ paste("Updated number of rows:", nrow(marketing))
 paste("Raw/Updated number of rows (%): ", round(nrow(marketing)/nrow(marketingRaw)*100,1), "%")
 @
 
-Therefore, alternative methods should be considered.
+Some of the predictors have more missing values than others:
+<<echo=FALSE, size="small",fig.cap='Missing Data', fig.align="center", warning=FALSE, out.width='8cm', out.height='8cm', fig.show='hold', fig.pos='H'>>=
+aggr_plot <-aggr(marketingRaw, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE, labels=names(marketingRaw), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+@
+
+
+Therefore, alternative methods should be considered. One alternative is to use the R package $mice$ to impute the missing data:
+<<cache=TRUE,size="small">>=
+imputedData <- mice(marketingRaw, m=5, maxit = 50, method = 'pmm', seed = 500)
+marketingImputed=complete(imputedData,5)
+@
+In this report we have only used the entries in the $marketing$ data which have no missing fields. The analysis could easily be reproduced using the imputed dataset, however.
 % Such as, blablabla .. apply them
 
 \subsection{Summary Statistics}
